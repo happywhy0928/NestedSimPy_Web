@@ -182,13 +182,13 @@ def build(name: str, meta: dict) -> dict:
             "\n"
             f'run = os.path.dirname(glob.glob("simpy_examples/{name}/**/rollout", recursive=True)[0])\n'
             "\n"
-            "# The four rollout CSVs: the picks, per-action scores,\n"
-            "# one row per inner simulation, every decision inside every branch.\n"
-            'picks = pd.read_csv(f"{run}/rollout/picks.csv")\n'
-            'actions = pd.read_csv(f"{run}/rollout/actions.csv")\n'
-            'print(picks.to_string(index=False))\n'
+            "# Two of the four rollout CSVs: the executed picks, and every\n"
+            "# candidate's score per decision.\n"
+            'outer_decisions = pd.read_csv(f"{run}/rollout/outer_decisions.csv")\n'
+            'aggregated = pd.read_csv(f"{run}/rollout/inner_trajectories_aggregated.csv")\n'
+            'print(outer_decisions.to_string(index=False))  # base_policy pick = no override\n'
             'print()\n'
-            'print(actions.head(8).to_string(index=False))  # base_policy = the baseline decision, no override\n'
+            'print(aggregated.head(8).to_string(index=False))  # base_policy row = the baseline decision, scored as one more candidate\n'
         )
     else:
         inspect = (

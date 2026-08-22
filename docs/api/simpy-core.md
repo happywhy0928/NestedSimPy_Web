@@ -115,11 +115,11 @@ outer_decisions() -> list[(t, decision, feats)]  # the outer run's decisions
   instant finish before the model observes state.
 - **`set_state_features`** — ``fn(state)`` returns a dict of numeric features;
   every decision (outer and in every branch) records them, and
-  `decisions.csv` gains one `state_<key>` column per feature — the
+  `inner_decisions.csv` gains one `state_<key>` column per feature — the
   (state, action, value) rows offline policy learning needs.
 - **`last_run_dir`** / **`outer_decisions`** — where the last `nested_run`
   wrote, and the outer run's own (time, decision, features) triples —
-  the in-memory companions to the run directory and `decisions.csv`.
+  the in-memory companions to the run directory and `inner_decisions.csv`.
 
 ```{note}
 `configure_branching(...)` and `set_outer_timeout(...)` are one-call /

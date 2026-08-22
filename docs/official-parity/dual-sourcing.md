@@ -26,9 +26,12 @@ run the paper's Table 5 instance (h=1, b=60, h2=2), whose best
 Dual-Index policy (s1=30, s2=12) has an exact cost rate of 99.89 in the
 paper. The plain version follows Dual-Index policies as written — its
 driver sweeps s1 around the best one to validate the simulator against
-the paper's exact values. The nested version runs the best policy and
-hands each of its decisions to `env.decide`, trying each candidate
-order in inner simulations launched from the live production line.
+the paper's exact values. The nested version runs the best policy with
+demand raised from 6 to 6.5 per unit time, so that stage 2 (rate 7,
+and every order passes through it) runs at 93% utilization, congested
+enough for lead times to depend on the queue. It hands each decision
+to `env.decide`, trying each candidate order in inner simulations
+launched from the live production line.
 
 ```{tip}
 **Run it live:** [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NestedSimPy/nestedsimpy.github.io/blob/main/notebooks/NestedSimPy_dual_sourcing.ipynb)
@@ -62,20 +65,24 @@ improve — is the paper's `DualIndexPolicy`, the same object in both
 files. It goes into the decision line as is:
 
 ```python
-ACTIONS = [(0, 1), (1, 1)]
+ACTIONS = [(0, 0), (1, 0), (0, 1), (1, 1)]
 
 normal, emergency = yield from env.decide(policy, state)
 ```
 
 Each action is a complete `(normal, emergency)` order — how many units
-to order normally, and how many to expedite. Three candidates compete
-at every review:
+to order normally, and how many to expedite. Five candidates compete
+at every review (each `env.decide` call); when the baseline's decision
+coincides with a listed action the two are still scored separately,
+and an exact tie goes to the baseline:
 
 | candidate | meaning |
 |---|---|
-| the baseline's own decision (evaluated by default) | whatever Dual-Index says — usually `(0, 0)` or `(1, 0)`, since reviews follow each demand and each delivery |
-| `(0, 1)` | expedite one unit *instead of* ordering it normally |
-| `(1, 1)` | expedite one unit *on top of* the normal order |
+| the baseline's own decision (evaluated by default) | whatever Dual-Index says — usually `(0, 0)` or `(1, 0)`, since reviews follow each demand and each delivery; occasionally larger, e.g. the opening order that raises the inventory position to `s1` |
+| `(0, 0)` | order nothing at this review |
+| `(1, 0)` | order one unit normally |
+| `(0, 1)` | expedite one unit rather than ordering it normally |
+| `(1, 1)` | order one unit normally and expedite another |
 
 Each inner simulation tries its candidate once and then hands control
 back to the Dual-Index rule, so the only thing the simulations disagree

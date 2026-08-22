@@ -48,10 +48,17 @@ code:
 ## An example
 
 The example below illustrates a rollout implementation in the context
-of a periodic-review inventory model. In each period the sequence of
-events is: the previous period's order arrives, demand realizes,
-holding and shortage costs are incurred, and an order decision is
-made.
+of a periodic-review inventory model — a multi-period newsvendor
+problem with lost sales and one period of lead time: an order placed
+at the end of a period arrives at the start of the next. In each
+period the sequence of events is: the previous period's order arrives,
+demand realizes, holding and shortage costs are incurred, and an order
+decision is made. Since each order arrives before the next demand, the
+classic newsvendor result applies: ordering up to the critical-fractile
+level every period is optimal — 8 units here, for Poisson demand with
+mean 5, a holding cost of 1 and a shortage cost of 9. The baseline rule
+below orders up to 10 instead, and the rollout's picks move the order
+level back toward the optimum.
 
 - Plain SimPy: [`simpy_examples/inventory_lookahead_plain.py`](https://github.com/NestedSimPy/nestedsimpy.github.io/blob/main/simpy_examples/inventory_lookahead_plain.py)
 - NestedSimPy: [`simpy_examples/inventory_lookahead_nested.py`](https://github.com/NestedSimPy/nestedsimpy.github.io/blob/main/simpy_examples/inventory_lookahead_nested.py)
@@ -108,7 +115,7 @@ quantities, and record the cost wherever it arises — `metric="cost"`
 in the configuration sums these records into each branch's score:
 
 ```python
-ACTIONS = [0, 5, 10]
+ACTIONS = list(range(11))  # 0..10
 ```
 
 ```python
@@ -125,7 +132,7 @@ file:
 env.set_outer_stopping_condition(timeout=PERIODS + 0.5)
 env.set_inner_stopping_condition(relative_time=float(INNER_HORIZON))
 env.set_inner_repetitions(INNER_REPS)
-env.set_rng("independent")
+env.set_rng("CRN")
 env.set_outer_seed(RANDOM_SEED)
 env.set_inner_actions(ACTIONS, metric="cost", outer_run_mode="rollout")
 env.set_output_options(out_dir=NESTED_OUTPUT_FOLDER, gzip_trace=False)
@@ -134,33 +141,63 @@ env.nested_run()
 
 ### The output
 
-Running the nested file prints the total cost (39.0 for this seed) and
-writes four CSV tables to the run directory. `picks.csv` is the story
-of the run — what each decision chose (`base_policy` means no
-override: the rule's own order was best):
+Running the nested file prints the total cost (27.0 for this seed) and
+writes four CSV tables to a timestamped run folder — here
+`simpy_examples/inventory_lookahead/<run>/rollout/`. The first rows of
+each table, from this run:
 
-| `trigger` (decision epoch) | `time` | `picked_action` | `mean` (the pick's score) |
-|---|---|---|---|
-| 0 | 1.0 | `base_policy` | 10.75 |
-| 1 | 2.0 | `base_policy` | 17.00 |
-| 2 | 3.0 | `base_policy` | 16.50 |
-| 3 | 4.0 | 0 | 11.50 |
-| 4 | 5.0 | 10 | 14.25 |
-| 5 | 6.0 | 0 | 14.25 |
-| 6 | 7.0 | 10 | 16.75 |
-| 7 | 8.0 | 0 | 15.25 |
+**`outer_decisions.csv`** — one row per decision epoch (`trigger` is
+the epoch index): the picked action (`picked_action`), the order the
+outer simulation actually placed (`decision_taken`), and the pick's
+score (`mean`). When the pick is `base_policy` (no override),
+`decision_taken` records the quantity the rule ordered, 6.0 in the
+`trigger` 2 row:
 
-The other three tables go one level finer — `actions.csv` keeps every
-candidate's score at every decision, `branches.csv` one row per inner
-simulation, `decisions.csv` every decision inside each branch;
+| `trigger` | `time` | `picked_action` | `decision_taken` | `mean` |
+|---|---|---|---|---|
+| 0 | 1.0 | 0 | 0.0 | 11.75 |
+| 1 | 2.0 | 7 | 7.0 | 14.25 |
+| 2 | 3.0 | `base_policy` | 6.0 | 19.0 |
+| … | | | | |
+
+**`inner_trajectories_aggregated.csv`** — every candidate's score at
+every decision epoch:
+
+| `trigger` | `time` | `action` | `mean` | `std` | `n` | `picked` |
+|---|---|---|---|---|---|---|
+| 0 | 1.0 | 0 | 11.75 | 1.92 | 4 | 1 |
+| 0 | 1.0 | 1 | 12.75 | 1.92 | 4 | 0 |
+| 0 | 1.0 | 2 | 13.75 | 1.92 | 4 | 0 |
+| … | | | | | | |
+
+(`std` shown to two decimals here; the file keeps full precision.)
+
+**`inner_trajectories.csv`** — one row per inner simulation:
+
+| `inner_id` | `trigger` | `fork_time` | `action` | `replication` | `value` | `seed` | `end_time` | `events` | `stop_reason` |
+|---|---|---|---|---|---|---|---|---|---|
+| j0-a0-k0 | 0 | 1.0 | 0 | 0 | 13.0 | 2169841265 | 5.0 | 50 | time_horizon |
+| j0-a0-k1 | 0 | 1.0 | 0 | 1 | 14.0 | 3982384359 | 5.0 | 50 | time_horizon |
+| j0-a0-k2 | 0 | 1.0 | 0 | 2 | 11.0 | 3036140064 | 5.0 | 50 | time_horizon |
+| … | | | | | | | | | |
+
+**`inner_decisions.csv`** — every decision made *inside* each inner
+simulation:
+
+| `inner_id` | `trigger` | `action` | `replication` | `t` | `decision` |
+|---|---|---|---|---|---|
+| j0-a0-k0 | 0 | 0 | 0 | 1.0 | 0.0 |
+| j0-a0-k0 | 0 | 0 | 0 | 2.0 | 8.0 |
+| j0-a0-k0 | 0 | 0 | 0 | 3.0 | 2.0 |
+| … | | | | | |
+
 {doc}`Raw data files <../api/raw-data>` lists all columns. In code,
 `env.print_rollout_summary()` shows the same numbers, one line per
 decision with the pick starred:
 
 ```text
-rollout summary (metric 'cost', 8 triggers, 4 actions)
-  trigger  0 (t=1): 0:11.8  5:13.2  10:17.8  base_policy:10.8*
-  trigger  1 (t=2): 0:17.2  5:17.8  10:22.8  base_policy:17.0*
+rollout summary (metric 'cost', 8 triggers, 12 actions)
+  trigger  0 (t=1): 0:11.8*  1:12.8  2:13.8  3:14.8  4:15.8  5:16.8  6:17.8  7:18.8  8:19.8  9:21.0  10:22.8  base_policy:16.8
   ...
 ```
 
@@ -176,6 +213,7 @@ a dict; plot and load helpers live in `nestedsimpy.reporting`.
 | `set_inner_actions(..., include_baseline=False)` | evaluate only the listed actions; by default the baseline's own decision competes as one more candidate |
 | `set_inner_stopping_condition(relative_time=H)` | each branch runs `H` time units past the trigger point — the lookahead window |
 | `set_inner_repetitions(K)` | `K` branches per action; the score is their mean |
+| `set_rng("CRN")` | common random numbers: the k-th replication uses the same random draws under every candidate, so candidates are compared on the same simulated futures; `"independent"` gives every branch its own draws |
 | `set_inner_actions(..., minimize=False)` | pick the highest-scoring action instead — for reward metrics |
 
 To score branches by something other than a recorded sum, register a
@@ -184,10 +222,10 @@ metric of the same name with `env.register_metric`
 
 ```{tip}
 Expect gains where the baseline has mistakes to correct: this
-example's simple rule is overridden at 5 of 8 decisions, while a
-well-tuned rule keeps most of its picks. Each candidate's score is the
+example's simple rule is overridden at seven of its eight decisions,
+while a well-tuned rule keeps most of its picks. Each candidate's score is the
 average over its inner simulations, so raising the replications makes
-the comparison steadier and more accurate, at more computation; a
+the comparison steadier, at the cost of more computation; a
 longer lookahead window sees more of each action's consequences but
 adds noise. When tuning, keep the window short and raise the
 replications first.

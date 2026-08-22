@@ -26,7 +26,7 @@ MEAN_DEMAND = 5.0          # Poisson demand per period
 HOLD_COST = 1.0            # per unit on hand per period
 SHORTAGE_COST = 9.0        # per unit short per period (lost sales)
 ORDER_UP_TO = 10           # the rule's target position
-ACTIONS = [0, 5, 10]       # the baseline policy's order competes automatically
+ACTIONS = list(range(11))  # 0..10; the baseline's own order also competes
 INNER_HORIZON = 4          # the lookahead window, in periods
 INNER_REPS = 4             # inner branches per candidate
 
@@ -56,7 +56,7 @@ def periods(env, state):
 
         period_cost = HOLD_COST * on_hand + SHORTAGE_COST * short
         env.record("cost", period_cost)             # scores the branches
-        state["cost"] += period_cost
+        state["cumulative_cost"] += period_cost
 
         order = yield from env.decide(base_policy, state)
         if order > 0:
@@ -71,7 +71,7 @@ def run():
                                  nested_id="stock"),
         "pipeline": NestedContainer(env, capacity=float("inf"), init=0,
                                     nested_id="pipeline"),
-        "cost": 0.0,
+        "cumulative_cost": 0.0,
     }
     env.process(periods(env, state))
 
@@ -79,12 +79,12 @@ def run():
     env.set_outer_stopping_condition(timeout=PERIODS + 0.5)
     env.set_inner_stopping_condition(relative_time=float(INNER_HORIZON))
     env.set_inner_repetitions(INNER_REPS)
-    env.set_rng("independent")
+    env.set_rng("CRN")
     env.set_outer_seed(RANDOM_SEED)
     env.set_inner_actions(ACTIONS, metric="cost", outer_run_mode="rollout")
     env.set_output_options(out_dir=NESTED_OUTPUT_FOLDER, gzip_trace=False)
     env.nested_run()
-    return state["cost"], env
+    return state["cumulative_cost"], env
 
 
 if __name__ == "__main__":

@@ -55,12 +55,11 @@ from dataclasses import dataclass
 import numpy as np
 
 # One entry per candidate decision, in the shape the policy returns:
-# (normal, emergency).  The baseline policy's own decision competes
-# automatically -- here (0, 0) or (1, 0) at almost every review, since
-# reviews follow each demand and each delivery.  These two expedite a
-# unit instead of ordering it normally, and expedite one on top of the
-# normal order.
-ACTIONS = [(0, 1), (1, 1)]
+# (normal, emergency) -- order nothing, one normal unit, one emergency
+# unit, or both.  The baseline policy's own decision competes
+# automatically -- it can be a larger order than any of these, e.g.
+# the opening order that fills the position up to s1.
+ACTIONS = [(0, 0), (1, 0), (0, 1), (1, 1)]
 INNER_HORIZON = 3.0      # lookahead window, in time units
 INNER_REPS = 12          # replications per action
 
@@ -235,7 +234,7 @@ def simulate(params: Params, policy, seed: int, *,
     env.set_outer_stopping_condition(timeout=p.horizon)     # end of the run
     env.set_inner_stopping_condition(relative_time=float(inner_horizon))
     env.set_inner_repetitions(inner_reps)                   # branches/action
-    env.set_rng("independent")
+    env.set_rng("CRN")
     env.set_outer_seed(seed)
     env.set_inner_actions(ACTIONS, metric="cost",
                           outer_run_mode="rollout")
@@ -252,7 +251,11 @@ def simulate(params: Params, policy, seed: int, *,
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    params = Params(horizon=25.0, warmup=0.0)
+    # The paper's instance with heavier demand: lambda 6.5 instead of 6,
+    # so stage 2 (rate 7, which every unit passes through) runs at 93%
+    # utilization and congestion bites.  Demand of 7 or more would make
+    # it unstable.
+    params = Params(demand_rate=6.5, horizon=25.0, warmup=0.0)
     policy = DualIndexPolicy(s1=30, s2=12)      # the paper's best DI baseline
     r = simulate(params, policy, seed=1, out_dir=NESTED_OUTPUT_FOLDER)
     print(f"rollout over {len(ACTIONS) + 1} candidates on {policy!r}: "

@@ -66,21 +66,26 @@ means and standard deviations across its branches (the source of
 A run with declared actions also writes a `rollout/` folder: a
 `manifest.json` describing what produced the files (`actions`,
 `metric`, `minimize`, `outer_run_mode`, `picks_executed`, `k`,
-`replications_per_action`, `decision_count`) and four CSV files from
-from the pick down to every decision inside every branch:
+`replications_per_action`, `decision_count`) and four CSV files, from
+the pick down to every decision inside every branch:
 
-- `picks.csv` — one row per decision: `trigger`, `time`,
-  `picked_action`, `mean`. A `base_policy` cell means no override: the
-  decision executed the baseline policy's own choice.
-- `actions.csv` — one row per (decision, action): `trigger`, `time`,
-  `action`, `mean`, `std`, `n` (replications), `picked`. As everywhere
-  in these files, `base_policy` in the `action` cell is the baseline
-  policy's own decision.
-- `branches.csv` — one row per inner simulation: `inner_id`
+- `outer_decisions.csv` — one row per decision epoch: `trigger`,
+  `time`, `picked_action`, `decision_taken`, `mean`. A `base_policy`
+  cell in `picked_action` means no override: the outer run executed
+  the baseline policy's own choice. `decision_taken` is the value the
+  outer simulation actually executed; on a `base_policy` row, the
+  concrete value the baseline policy chose.
+- `inner_trajectories_aggregated.csv` — one row per (decision,
+  action): `trigger`, `time`, `action`, `mean`, `std` (population
+  standard deviation of the branch scores), `n` (replications),
+  `picked`. As everywhere in these files,
+  `base_policy` in the `action` cell is the baseline policy's own
+  decision.
+- `inner_trajectories.csv` — one row per inner simulation: `inner_id`
   (`j<decision>-a<action>-k<replication>`), `trigger`, `fork_time`,
   `action`, `replication`, `value` (the branch's score), `seed`,
   `end_time`, `events`, `stop_reason`.
-- `decisions.csv` — one row per decision made *inside* a branch:
+- `inner_decisions.csv` — one row per decision made *inside* a branch:
   `inner_id`, `trigger`, `action`, `replication`, `t`, `decision`,
   plus one `state_<key>` column per feature when `set_state_features`
   is on. Each branch's first decision is its candidate action; the

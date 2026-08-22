@@ -45,7 +45,7 @@ def periods(env, state):
         short = demand - sales                      # lost sales
 
         period_cost = HOLD_COST * on_hand + SHORTAGE_COST * short
-        state["cost"] += period_cost
+        state["cumulative_cost"] += period_cost
 
         order = base_policy(state)
         if order > 0:
@@ -58,11 +58,11 @@ def run():
     state = {
         "stock": simpy.Container(env, capacity=float("inf"), init=10),
         "pipeline": simpy.Container(env, capacity=float("inf"), init=0),
-        "cost": 0.0,
+        "cumulative_cost": 0.0,
     }
     env.process(periods(env, state))
     env.run(until=PERIODS + 0.5)
-    return state["cost"]
+    return state["cumulative_cost"]
 
 
 if __name__ == "__main__":
