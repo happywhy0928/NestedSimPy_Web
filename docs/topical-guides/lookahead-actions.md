@@ -211,7 +211,8 @@ a dict; plot and load helpers live in `nestedsimpy.reporting`.
 | `set_inner_actions(ACTIONS, metric="cost", outer_run_mode="rollout")` | declare the candidates, score branches by their summed `"cost"` records, execute the best at each decision |
 | `set_inner_actions(..., outer_run_mode="base_policy")` | score every decision but keep the outer run on its baseline policy |
 | `set_inner_actions(..., include_baseline=False)` | evaluate only the listed actions; by default the baseline's own decision competes as one more candidate |
-| `set_inner_stopping_condition(relative_time=H)` | each branch runs `H` time units past the trigger point — the lookahead window |
+| `set_inner_stopping_condition(relative_time=H)` | each branch runs `H` time units past the trigger point — the lookahead window. Branches do not stop when the outer run's horizon is reached: in this example the branches of the last decision run to time 12 while the outer run ends at 8.5 |
+| `set_inner_stopping_condition(relative_time=H, absolute_time=T)` | a branch stops at whichever comes first; `absolute_time=PERIODS + 0.5` would keep every branch inside the outer run's own horizon, for a problem that really ends there |
 | `set_inner_repetitions(K)` | `K` branches per action; the score is their mean |
 | `set_rng("CRN")` | common random numbers: the k-th replication uses the same random draws under every candidate, so candidates are compared on the same simulated futures; `"independent"` gives every branch its own draws |
 | `set_inner_actions(..., minimize=False)` | pick the highest-scoring action instead — for reward metrics |
