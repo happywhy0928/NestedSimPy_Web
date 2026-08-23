@@ -176,7 +176,7 @@ the shape your policy returns; the baseline policy's own decision is
 evaluated alongside them by default:
 
 ```python
-ACTIONS = list(range(11))  # 0..10
+ACTIONS = list(range(21))  # 0..20
 ```
 
 **4b. Replace the policy call with the decision line.** The policy

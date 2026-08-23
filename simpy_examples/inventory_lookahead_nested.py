@@ -7,10 +7,12 @@ Covers:
 - Containers: Container
 
 Scenario:
-  A stock faces Poisson demand each period. After demand, an order
-  decision: the order-up-to rule looks at the inventory position (on
-  hand plus in the pipeline) and orders the shortfall. Orders arrive
-  one period later. Holding and shortage costs accrue per period.
+  A single item faces Poisson demand each period. Each period opens
+  with the order decision: the order-up-to rule looks at the inventory
+  position (on hand plus in the pipeline) and orders the shortfall.
+  The order placed one period earlier then arrives, demand realizes,
+  and holding and shortage costs accrue. An order placed this period
+  is on hand for the next period's demand (one period of lead time).
   This is the lookahead version: env.decide tries each candidate
   order quantity in inner simulations and executes the one with the
   lowest average cost.
@@ -20,15 +22,15 @@ from _imports import *  # NestedSimPy names + shared example helpers
 
 import numpy as np
 
-RANDOM_SEED = 42
+RANDOM_SEED = 12
 PERIODS = 8                # review periods
 MEAN_DEMAND = 5.0          # Poisson demand per period
 HOLD_COST = 1.0            # per unit on hand per period
 SHORTAGE_COST = 9.0        # per unit short per period (lost sales)
 ORDER_UP_TO = 10           # the rule's target position
-ACTIONS = list(range(11))  # 0..10; the baseline's own order also competes
+ACTIONS = list(range(21))  # 0..20; the baseline's own order also competes
 INNER_HORIZON = 4          # the lookahead window, in periods
-INNER_REPS = 4             # inner branches per candidate
+INNER_REPS = 16            # inner branches per candidate
 
 NESTED_OUTPUT_FOLDER = set_nested_output_folder("simpy_examples",
                                                 "inventory_lookahead")
@@ -43,7 +45,10 @@ def base_policy(state):
 def periods(env, state):
     while True:
         yield env.timeout(1.0)
-        landing = int(state["pipeline"].level)      # last period's order
+        landing = int(state["pipeline"].level)      # last period's order, due now
+        order = yield from env.decide(base_policy, state)   # this period's order
+        if order > 0:
+            state["pipeline"].put(order)            # arrives next period
         if landing:
             state["pipeline"].get(landing)
             state["stock"].put(landing)
@@ -57,10 +62,6 @@ def periods(env, state):
         period_cost = HOLD_COST * on_hand + SHORTAGE_COST * short
         env.record("cost", period_cost)             # scores the branches
         state["cumulative_cost"] += period_cost
-
-        order = yield from env.decide(base_policy, state)
-        if order > 0:
-            state["pipeline"].put(order)            # arrives next period
 
 
 def run():

@@ -47,34 +47,33 @@ code:
 
 ## An example
 
-The example below illustrates a rollout implementation in the context
-of a periodic-review inventory model — a multi-period newsvendor
-problem with lost sales and one period of lead time: an order placed
-at the end of a period arrives at the start of the next. In each
-period the sequence of events is: the previous period's order arrives,
-demand realizes, holding and shortage costs are incurred, and an order
-decision is made. Since each order arrives before the next demand, the
-classic newsvendor result applies: ordering up to the critical-fractile
-level every period is optimal — 8 units here, for Poisson demand with
-mean 5, a holding cost of 1 and a shortage cost of 9. The baseline rule
-below orders up to 10 instead, and the rollout's picks move the order
-level back toward the optimum.
+The example below implements rollout for a periodic-review inventory
+model — a multi-period newsvendor problem with lost sales and one
+period of lead time. An order placed this period is still in transit
+when this period's demand arrives and is on hand for the next
+period's demand, so each order is chosen one period before the demand
+it can serve. With zero lead time (orders arriving before the same
+period's demand), the optimal policy is known in closed form: order up
+to the critical-fractile level every period. With one period of lead
+time and lost sales, no closed form is known; the standard rule brings
+the inventory position (on hand plus in the pipeline) up to a fixed
+level, and that rule is the baseline policy here.
 
 - Plain SimPy: [`simpy_examples/inventory_lookahead_plain.py`](https://github.com/NestedSimPy/nestedsimpy.github.io/blob/main/simpy_examples/inventory_lookahead_plain.py)
 - NestedSimPy: [`simpy_examples/inventory_lookahead_nested.py`](https://github.com/NestedSimPy/nestedsimpy.github.io/blob/main/simpy_examples/inventory_lookahead_nested.py)
 
 ### No rollout
 
-Assume that in each period random demand, modeled with a Poisson
-distribution, is realized. The user then makes a decision about the
-order quantity. The baseline policy we wish to improve is the
+Assume that in each period the user first makes a decision about the
+order quantity, and then random demand, modeled with a Poisson
+distribution, is realized. The baseline policy we wish to improve is the
 order-up-to rule that considers the inventory position (on hand plus
 in the pipeline) and orders up to a prespecified level. For
 simplicity, we assume orders arrive one period later: each period
-opens with the arrival of the previous period's order, then demand
-realizes, holding and shortage costs are incurred, and the period
-ends with the new order decision. The code below implements this
-model and runs it for eight periods:
+opens with the new order decision, then the previous period's order
+arrives, demand realizes, and holding and shortage costs are
+incurred. The code below implements this model and runs it for eight
+periods:
 
 ```{literalinclude} ../../simpy_examples/inventory_lookahead_plain.py
 :language: python
@@ -115,7 +114,7 @@ quantities, and record the cost wherever it arises — `metric="cost"`
 in the configuration sums these records into each branch's score:
 
 ```python
-ACTIONS = list(range(11))  # 0..10
+ACTIONS = list(range(21))  # 0..20
 ```
 
 ```python
@@ -141,33 +140,36 @@ env.nested_run()
 
 ### The output
 
-Running the nested file prints the total cost (27.0 for this seed) and
-writes four CSV tables to a timestamped run folder — here
-`simpy_examples/inventory_lookahead/<run>/rollout/`. The first rows of
-each table, from this run:
+Running the nested file prints the total cost (50.0 for this seed) and
+writes four CSV tables to a timestamped run folder — in the Colab
+notebook, `simpy_examples/inventory_lookahead/<run>/rollout/`. The
+first rows of each table, from this run:
 
 **`outer_decisions.csv`** — one row per decision epoch (`trigger` is
-the epoch index): the picked action (`picked_action`), the order the
-outer simulation actually placed (`decision_taken`), and the pick's
-score (`mean`). When the pick is `base_policy` (no override),
-`decision_taken` records the quantity the rule ordered, 6.0 in the
-`trigger` 2 row:
+the epoch index). `picked_action` names the winner of the comparison,
+`decision_taken` is the order quantity the outer simulation actually
+placed, and `mean` is the winner's score. The two columns differ only
+when the winner is the baseline: `picked_action` then reads
+`base_policy` and `decision_taken` holds the quantity the rule
+ordered:
 
 | `trigger` | `time` | `picked_action` | `decision_taken` | `mean` |
 |---|---|---|---|---|
-| 0 | 1.0 | 0 | 0.0 | 11.75 |
-| 1 | 2.0 | 7 | 7.0 | 14.25 |
-| 2 | 3.0 | `base_policy` | 6.0 | 19.0 |
+| 0 | 1.0 | 4 | 4.0 | 30.125 |
+| 1 | 2.0 | 10 | 10.0 | 33.1875 |
+| 2 | 3.0 | `base_policy` | 0.0 | 36.6875 |
 | … | | | | |
+
+(Third row: no candidate beat the rule, and the rule ordered 0.)
 
 **`inner_trajectories_aggregated.csv`** — every candidate's score at
 every decision epoch:
 
 | `trigger` | `time` | `action` | `mean` | `std` | `n` | `picked` |
 |---|---|---|---|---|---|---|
-| 0 | 1.0 | 0 | 11.75 | 1.92 | 4 | 1 |
-| 0 | 1.0 | 1 | 12.75 | 1.92 | 4 | 0 |
-| 0 | 1.0 | 2 | 13.75 | 1.92 | 4 | 0 |
+| 0 | 1.0 | 0 | 34.6875 | 21.27 | 16 | 0 |
+| 0 | 1.0 | 1 | 31.6875 | 19.87 | 16 | 0 |
+| 0 | 1.0 | 2 | 30.9375 | 18.20 | 16 | 0 |
 | … | | | | | | |
 
 (`std` shown to two decimals here; the file keeps full precision.)
@@ -176,9 +178,9 @@ every decision epoch:
 
 | `inner_id` | `trigger` | `fork_time` | `action` | `replication` | `value` | `seed` | `end_time` | `events` | `stop_reason` |
 |---|---|---|---|---|---|---|---|---|---|
-| j0-a0-k0 | 0 | 1.0 | 0 | 0 | 13.0 | 2169841265 | 5.0 | 50 | time_horizon |
-| j0-a0-k1 | 0 | 1.0 | 0 | 1 | 14.0 | 3982384359 | 5.0 | 50 | time_horizon |
-| j0-a0-k2 | 0 | 1.0 | 0 | 2 | 11.0 | 3036140064 | 5.0 | 50 | time_horizon |
+| j0-a0-k0 | 0 | 1.0 | 0 | 0 | 15.0 | 3534414860 | 5.0 | 55 | time_horizon |
+| j0-a0-k1 | 0 | 1.0 | 0 | 1 | 42.0 | 3083054314 | 5.0 | 55 | time_horizon |
+| j0-a0-k2 | 0 | 1.0 | 0 | 2 | 17.0 | 706492495 | 5.0 | 39 | time_horizon |
 | … | | | | | | | | | |
 
 **`inner_decisions.csv`** — every decision made *inside* each inner
@@ -187,8 +189,8 @@ simulation:
 | `inner_id` | `trigger` | `action` | `replication` | `t` | `decision` |
 |---|---|---|---|---|---|
 | j0-a0-k0 | 0 | 0 | 0 | 1.0 | 0.0 |
-| j0-a0-k0 | 0 | 0 | 0 | 2.0 | 8.0 |
-| j0-a0-k0 | 0 | 0 | 0 | 3.0 | 2.0 |
+| j0-a0-k0 | 0 | 0 | 0 | 2.0 | 1.0 |
+| j0-a0-k0 | 0 | 0 | 0 | 3.0 | 4.0 |
 | … | | | | | |
 
 {doc}`Raw data files <../api/raw-data>` lists all columns. In code,
@@ -196,8 +198,8 @@ simulation:
 decision with the pick starred:
 
 ```text
-rollout summary (metric 'cost', 8 triggers, 12 actions)
-  trigger  0 (t=1): 0:11.8*  1:12.8  2:13.8  3:14.8  4:15.8  5:16.8  6:17.8  7:18.8  8:19.8  9:21.0  10:22.8  base_policy:16.8
+rollout summary (metric 'cost', 8 triggers, 22 actions)
+  trigger  0 (t=1): 0:34.7  1:31.7  2:30.9  3:30.2  4:30.1*  5:30.9  6:30.9  7:31.7  8:31.9  9:31.8  10:30.4  11:31.1  12:32.6  13:34.7  14:36.9  15:39.9  16:42.8  17:45.8  18:48.7  19:51.1  20:53.4  base_policy:34.7
   ...
 ```
 
