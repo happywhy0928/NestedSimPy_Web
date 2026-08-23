@@ -52,12 +52,10 @@ model — a multi-period newsvendor problem with lost sales and one
 period of lead time. An order placed this period is still in transit
 when this period's demand arrives and is on hand for the next
 period's demand, so each order is chosen one period before the demand
-it can serve. With zero lead time (orders arriving before the same
-period's demand), the optimal policy is known in closed form: order up
-to the critical-fractile level every period. With one period of lead
-time and lost sales, no closed form is known; the standard rule brings
-the inventory position (on hand plus in the pipeline) up to a fixed
-level, and that rule is the baseline policy here.
+it can serve. For this problem no closed-form optimal policy is
+known; the standard rule brings the inventory position (on hand plus
+in the pipeline) up to a fixed level, and that rule is the baseline
+policy here.
 
 - Plain SimPy: [`simpy_examples/inventory_lookahead_plain.py`](https://github.com/NestedSimPy/nestedsimpy.github.io/blob/main/simpy_examples/inventory_lookahead_plain.py)
 - NestedSimPy: [`simpy_examples/inventory_lookahead_nested.py`](https://github.com/NestedSimPy/nestedsimpy.github.io/blob/main/simpy_examples/inventory_lookahead_nested.py)
