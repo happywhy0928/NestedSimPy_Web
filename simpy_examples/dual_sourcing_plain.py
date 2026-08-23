@@ -26,12 +26,18 @@ Model (paper, Section 3)
   nonzero value is also handled.
 
 Default parameter values are the instance of Table 5 (Section 6) with
-h=1, b=60, h2=2: lambda=6, mu1=8, mu2=7, c1=10, c2=30.  For this
-instance the paper reports (long-run average cost per unit time):
-    optimal policy 96.5149 | TC policy 96.5349 | best DI policy 99.8904,
-where the best Dual-Index (DI) policy uses s1=30, s2=12.  The
-DualIndexPolicy below with those parameters is exactly the paper's DI
-benchmark, so the simulation can be validated against 99.8904.
+h=1, b=60, h2=2 (lambda=6, mu1=8, mu2=7, c1=10, c2=30), run with the
+clock twice as fast: demand 12 per unit time, production rates 16 and
+14, the time-proportional cost rates doubled (h=2, b=120, h2=4), and
+the per-unit costs c1, c2 as they were.  The same sample paths then
+play out in half the time at the same total cost, so the utilizations
+are unchanged, the paper's best Dual-Index (DI) policy, s1=30, s2=12,
+is still the best DI policy, and every long-run average cost per unit
+time doubles:
+    optimal policy 193.03 | TC policy 193.07 | best DI policy 199.78
+(the paper: 96.5149 | 96.5349 | 99.8904).  The DualIndexPolicy below
+with those parameters is exactly the paper's DI benchmark, so the
+simulation can be validated against 199.78.
 
 Policies
 --------
@@ -52,21 +58,22 @@ import simpy
 
 # ---------------------------------------------------------------------------
 # Parameters (problem data only -- no logic).  Values: paper's Table 5,
-# row h=1, b=60, h2=2.
+# row h=1, b=60, h2=2, at twice the speed (rates and time-proportional
+# costs doubled).
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class Params:
-    demand_rate: float = 6.0       # lambda: Poisson demand rate
-    stage1_rate: float = 8.0       # mu1: exponential rate of server 1
-    stage2_rate: float = 7.0       # mu2: exponential rate of server 2
+    demand_rate: float = 12.0      # lambda: Poisson demand rate
+    stage1_rate: float = 16.0      # mu1: exponential rate of server 1
+    stage2_rate: float = 14.0      # mu2: exponential rate of server 2
     normal_cost: float = 10.0      # c1: $ per unit, normal source
     emergency_cost: float = 30.0   # c2: $ per unit, emergency source
     stage1_holding: float = 0.0    # h1: $/unit/time at server 1 (paper
     #                                normalizes h1 = 0, folding it into c1)
-    stage2_holding: float = 2.0    # h2: $/unit/time at server 2
-    holding_cost: float = 1.0      # h:  $/unit/time on hand
-    backorder_cost: float = 60.0   # b:  $/unit/time backlogged
+    stage2_holding: float = 4.0    # h2: $/unit/time at server 2
+    holding_cost: float = 2.0      # h:  $/unit/time on hand
+    backorder_cost: float = 120.0  # b:  $/unit/time backlogged
     horizon: float = 2000.0        # length of one simulation run
     warmup: float = 200.0          # costs before this time are discarded
     initial_net: int = 12          # on-hand stock at time 0, empty pipeline
@@ -234,24 +241,25 @@ def evaluate(params: Params, policy, num_replications: int,
 
 
 # ---------------------------------------------------------------------------
-# Main: evaluate a few policies on the Table 5 instance
+# Main: evaluate a few policies on the Table 5 instance at twice the speed
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     params = Params()
     # Sweep s1 around the paper's best DI policy (s1=30, s2=12).  Exact
-    # average costs from the paper's eq. (26) for comparison:
-    #   s1=24: 103.57, s1=27: 100.72, s1=30: 99.89 (best, as reported),
-    #   s1=33: 100.40, s1=36: 101.80.
+    # average costs from the paper's eq. (26), times two for the doubled
+    # speed:
+    #   s1=24: 207.14, s1=27: 201.44, s1=30: 199.78 (best, as reported),
+    #   s1=33: 200.80, s1=36: 203.60.
     policies = [DualIndexPolicy(s1=s1, s2=12) for s1 in (24, 27, 30, 33, 36)]
 
-    print(f"Song et al. (2017), Table 5 instance: "
+    print(f"Song et al. (2017), Table 5 instance at twice the speed: "
           f"lambda={params.demand_rate}, mu1={params.stage1_rate}, "
           f"mu2={params.stage2_rate}, c1={params.normal_cost}, "
           f"c2={params.emergency_cost}, h={params.holding_cost}, "
           f"b={params.backorder_cost}, h2={params.stage2_holding}")
-    print(f"Paper values: optimal 96.5149 | TC 96.5349 | "
-          f"best DI (s1=30, s2=12) 99.8904")
+    print(f"Paper's exact values, doubled: optimal 193.03 | TC 193.07 | "
+          f"best DI (s1=30, s2=12) 199.78")
     print(f"{'policy':<28}{'cost/time':>10}{'95% CI':>18}"
           f"{'hold':>7}{'back':>7}{'pipe':>7}{'order':>7}{'%emg':>6}")
     for policy in policies:

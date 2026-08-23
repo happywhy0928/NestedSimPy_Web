@@ -22,16 +22,17 @@ an expedited order.
 
 The example illustrates how NestedSimPy applies
 rollout (policy lookahead) of an existing baseline policy: both files
-run the paper's Table 5 instance (h=1, b=60, h2=2), whose best
-Dual-Index policy (s1=30, s2=12) has an exact cost rate of 99.89 in the
-paper. The plain version follows Dual-Index policies as written — its
-driver sweeps s1 around the best one to validate the simulator against
-the paper's exact values. The nested version runs the best policy with
-demand raised from 6 to 6.5 per unit time, so that stage 2 (rate 7,
-and every order passes through it) runs at 93% utilization, congested
-enough for lead times to depend on the queue. It hands each decision
-to `env.decide`, trying each candidate order in inner simulations
-launched from the live production line.
+run the paper's Table 5 instance (h=1, b=60, h2=2) at twice its
+speed: demand 12 per unit time instead of 6, production rates 16 and
+14 instead of 8 and 7, and the time-proportional costs doubled (h=2,
+b=120, h2=4). Nothing changes but the clock, so the paper's best
+Dual-Index policy (s1=30, s2=12) is still the best one and its exact
+cost rate becomes 2 × 99.89 = 199.78. The plain version follows
+Dual-Index policies as written; its driver sweeps s1 around the best
+one to check the simulator against those doubled values. The nested
+version runs the best policy and hands each decision to `env.decide`,
+trying each candidate order in inner simulations launched from the
+live production line.
 
 ```{tip}
 **Run it live:** [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NestedSimPy/nestedsimpy.github.io/blob/main/notebooks/NestedSimPy_dual_sourcing.ipynb)

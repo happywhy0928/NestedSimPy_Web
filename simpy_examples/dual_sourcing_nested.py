@@ -26,12 +26,18 @@ Model (paper, Section 3)
   nonzero value is also handled.
 
 Default parameter values are the instance of Table 5 (Section 6) with
-h=1, b=60, h2=2: lambda=6, mu1=8, mu2=7, c1=10, c2=30.  For this
-instance the paper reports (long-run average cost per unit time):
-    optimal policy 96.5149 | TC policy 96.5349 | best DI policy 99.8904,
-where the best Dual-Index (DI) policy uses s1=30, s2=12.  The
-DualIndexPolicy below with those parameters is exactly the paper's DI
-benchmark, so the simulation can be validated against 99.8904.
+h=1, b=60, h2=2 (lambda=6, mu1=8, mu2=7, c1=10, c2=30), run with the
+clock twice as fast: demand 12 per unit time, production rates 16 and
+14, the time-proportional cost rates doubled (h=2, b=120, h2=4), and
+the per-unit costs c1, c2 as they were.  The same sample paths then
+play out in half the time at the same total cost, so the utilizations
+are unchanged, the paper's best Dual-Index (DI) policy, s1=30, s2=12,
+is still the best DI policy, and every long-run average cost per unit
+time doubles:
+    optimal policy 193.03 | TC policy 193.07 | best DI policy 199.78
+(the paper: 96.5149 | 96.5349 | 99.8904).  The DualIndexPolicy below
+with those parameters is exactly the paper's DI benchmark, so the
+simulation can be validated against 199.78.
 
 Policies
 --------
@@ -60,7 +66,7 @@ import numpy as np
 # automatically -- it can be a larger order than any of these, e.g.
 # the opening order that fills the position up to s1.
 ACTIONS = [(0, 0), (1, 0), (0, 1), (1, 1)]
-INNER_HORIZON = 3.0      # lookahead window, in time units
+INNER_HORIZON = 1.5      # lookahead window, in time units
 INNER_REPS = 12          # replications per action
 
 NESTED_OUTPUT_FOLDER = set_nested_output_folder("simpy_examples",
@@ -69,21 +75,22 @@ NESTED_OUTPUT_FOLDER = set_nested_output_folder("simpy_examples",
 
 # ---------------------------------------------------------------------------
 # Parameters (problem data only -- no logic).  Values: paper's Table 5,
-# row h=1, b=60, h2=2.
+# row h=1, b=60, h2=2, at twice the speed (rates and time-proportional
+# costs doubled).
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class Params:
-    demand_rate: float = 6.0       # lambda: Poisson demand rate
-    stage1_rate: float = 8.0       # mu1: exponential rate of server 1
-    stage2_rate: float = 7.0       # mu2: exponential rate of server 2
+    demand_rate: float = 12.0      # lambda: Poisson demand rate
+    stage1_rate: float = 16.0      # mu1: exponential rate of server 1
+    stage2_rate: float = 14.0      # mu2: exponential rate of server 2
     normal_cost: float = 10.0      # c1: $ per unit, normal source
     emergency_cost: float = 30.0   # c2: $ per unit, emergency source
     stage1_holding: float = 0.0    # h1: $/unit/time at server 1 (paper
     #                                normalizes h1 = 0, folding it into c1)
-    stage2_holding: float = 2.0    # h2: $/unit/time at server 2
-    holding_cost: float = 1.0      # h:  $/unit/time on hand
-    backorder_cost: float = 60.0   # b:  $/unit/time backlogged
+    stage2_holding: float = 4.0    # h2: $/unit/time at server 2
+    holding_cost: float = 2.0      # h:  $/unit/time on hand
+    backorder_cost: float = 120.0  # b:  $/unit/time backlogged
     horizon: float = 2000.0        # length of one simulation run
     warmup: float = 200.0          # costs before this time are discarded
     initial_net: int = 12          # on-hand stock at time 0, empty pipeline
@@ -251,15 +258,13 @@ def simulate(params: Params, policy, seed: int, *,
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # The paper's instance with heavier demand: lambda 6.5 instead of 6,
-    # so stage 2 (rate 7, which every unit passes through) runs at 93%
-    # utilization and congestion bites.  Demand of 7 or more would make
-    # it unstable.
-    params = Params(demand_rate=6.5, horizon=25.0, warmup=0.0)
+    # One short run from the initial state, no warm-up: about 150
+    # demands and about as many deliveries, each one a review.
+    params = Params(horizon=12.5, warmup=0.0)
     policy = DualIndexPolicy(s1=30, s2=12)      # the paper's best DI baseline
     r = simulate(params, policy, seed=1, out_dir=NESTED_OUTPUT_FOLDER)
     print(f"rollout over {len(ACTIONS) + 1} candidates on {policy!r}: "
-          f"total cost {r['total_cost']:.1f} over {params.horizon:.0f} "
+          f"total cost {r['total_cost']:.1f} over {params.horizon:g} "
           f"({r['total_cost'] / params.horizon:.2f} per unit time)")
     print(f"  ordered {r['counts']['normal']} normal, "
           f"{r['counts']['emergency']} emergency")
