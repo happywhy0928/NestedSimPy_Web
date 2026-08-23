@@ -42,6 +42,7 @@ running after a trigger event. Typical options:
 
 - `relative_time=...` — run for this many time units past the trigger point,
 - `absolute_time=...` — run until this absolute simulation time,
+- `stop_at_outer_horizon=True` — never run past the outer run's own `timeout`,
 - `triggering_customer_departs=True` — stop once the triggering customer finishes.
 
 ```python
@@ -61,6 +62,7 @@ All arguments are keyword-only arguments of
 | --- | --- | --- | --- | --- |
 | `relative_time` | `float` | `None` | Time budget per branch. | Exactly `relative_time` time units after the trigger point. |
 | `absolute_time` | `float` | `None` | Absolute deadline. Inner branches continue the outer clock (a branch launched at `t = 3.2` starts at `3.2`), so this is a time on that shared clock. | Exactly at that time; a branch launched after the deadline stops immediately. |
+| `stop_at_outer_horizon` | `bool` | `False` | Cap every branch at the outer run's horizon, the `timeout` of `set_outer_stopping_condition`. By default a branch runs its full `relative_time` even past that horizon. | At the outer horizon (or at `absolute_time`, whichever is earlier); recorded as `absolute_time`. Requires an outer `timeout`, otherwise `nested_run` raises `ValueError`. |
 | `triggering_customer_departs` | `bool` | `False` | Stop when the triggering customer is done. | The moment the triggering customer releases the triggering resource, i.e. its service completes. |
 | `event` | `StartStopSpec`, a SimPy event, or a callable returning one | `None` | Stop on the system state or on your own event — see {ref}`custom-and-composed-conditions` below. | Depends on the spec — see below. |
 
